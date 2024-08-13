@@ -1,0 +1,140 @@
+{
+ "actions": [],
+ "autoname": "field:payment_gateway_name",
+ "creation": "2024-07-17 15:17:14.347316",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "payment_gateway_name",
+  "column_break_pkgx",
+  "transaction_limit",
+  "credentials_section",
+  "username",
+  "merchant_id",
+  "operator_id",
+  "column_break_zdkv",
+  "password",
+  "entity_id",
+  "operator_password",
+  "section_break_ahax",
+  "sandbox",
+  "column_break_dvim",
+  "is_callback_registered"
+ ],
+ "fields": [
+  {
+   "fieldname": "payment_gateway_name",
+   "fieldtype": "Data",
+   "in_standard_filter": 1,
+   "label": "Payment Gateway Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "credentials_section",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "fieldname": "merchant_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Merchant ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "operator_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Operator ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_zdkv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "entity_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Entity ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "operator_password",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Operator Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_pkgx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "150000",
+   "fieldname": "transaction_limit",
+   "fieldtype": "Int",
+   "label": "Transaction Limit"
+  },
+  {
+   "fieldname": "username",
+   "fieldtype": "Data",
+   "label": "Username",
+   "reqd": 1
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_ahax",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "sandbox",
+   "fieldtype": "Check",
+   "label": "Sandbox"
+  },
+  {
+   "fieldname": "column_break_dvim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_callback_registered",
+   "fieldtype": "Check",
+   "label": "IMN Callback Registered?",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2024-08-13 15:50:14.267411",
+ "modified_by": "Administrator",
+ "module": "Mips Payments",
+ "name": "MIPS Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

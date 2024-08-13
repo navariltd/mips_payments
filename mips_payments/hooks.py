@@ -4,7 +4,7 @@ app_publisher = "Navari Ltd"
 app_description = "MIPS payments integration with ERPNext"
 app_email = "solutions@navari.co.ke"
 app_license = "agpl-3.0"
-# required_apps = []
+required_apps = ["frappe/erpnext/payments"]
 
 # Includes in <head>
 # ------------------
@@ -226,4 +226,3 @@ app_license = "agpl-3.0"
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
