@@ -2,15 +2,16 @@
 # For license information, please see license.txt
 
 
+import json
 from enum import Enum
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import requests
 
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import call_hook_method, ceil
+from frappe.utils import call_hook_method, ceil, get_request_site_address
 
 from payments.payment_gateways.doctype.mpesa_settings.mpesa_settings import (
     create_mode_of_payment,
@@ -28,9 +29,14 @@ class MIPSSettings(Document):
 
     supported_currencies = ["MUR"]
 
+    def get_parsed_site_address(self, full_address: bool = True) -> str:
+        site_address = get_request_site_address(full_address=full_address)
+        parsed = urlparse(site_address)
+        address = f"{parsed.scheme}://{parsed.hostname}"  # Discard port portion
+        return address
+
     def get_payment_url(self, **kwargs) -> str:
-        # TODO: Impute MIPS-provided URL here
-        return f"http://localhost:8003/mips_checkout?{urlencode(kwargs)}"
+        return f"{self.get_parsed_site_address()}/mips_checkout?{urlencode(kwargs)}"
 
     def on_update(self) -> None:
         """On Update Hook"""
@@ -48,7 +54,7 @@ class MIPSSettings(Document):
         # required to fetch the bank account details from the payment gateway account
         frappe.db.commit()
         create_mode_of_payment(
-            "MIPS-" + self.payment_gateway_name, payment_type="Email"
+            "MIPS-" + self.payment_gateway_name, payment_type="Phone"
         )
 
         if self.is_callback_registered == 0:
@@ -58,18 +64,15 @@ class MIPSSettings(Document):
             else:
                 url = MIPSUrls.PRODUCTION.value
 
-            # TODO: Cleanup references to development urls
             payload = {
-                "crypted_callback": "http://localhost:8003/api/method/mips_payments/mips_payments/mips_payments/doctype/mips_settings/imn_callback"
+                "crypted_callback": f"{self.get_parsed_site_address()}/api/method/mips_payments.mips_payments.mips_payments.doctype.mips_settings.imn_callback"
             }
-            header = {"Content-Type": "application/json"}
+            header = {"Content-Type": "application/json", "Accept": "application/json"}
 
-            response = requests.post(
-                url=MIPSUrls.PRODUCTION.value, json=payload, headers=header
-            )
+            response = requests.post(url=url, json=payload, headers=header)
 
             if response and response.status_code == 200:
-                self.is_callback_registered = response.json() == "success"
+                self.is_callback_registered = 1
 
     def validate_transaction_currency(self, currency: str) -> None:
         if currency not in self.supported_currencies:
@@ -123,4 +126,5 @@ class MIPSSettings(Document):
 
 @frappe.whitelist(allow_guest=True)
 def imn_callback(response: str) -> None:
-    print(response)
+    data = json.loads(response)
+    print(f"Callback response {data}")
