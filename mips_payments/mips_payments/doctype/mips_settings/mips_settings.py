@@ -7,6 +7,7 @@ from enum import Enum
 from urllib.parse import urlencode, urlparse
 
 import requests
+from requests.auth import HTTPBasicAuth
 
 import frappe
 from frappe import _
@@ -20,7 +21,7 @@ from payments.utils import create_payment_gateway
 
 
 class MIPSUrls(Enum):
-    SANDBOX = "https://stoplight.io/mocks/mips/merchant-api/36020489"
+    SANDBOX = "https://api.mips.mu/api"
     PRODUCTION = "https://api.mips.mu/api"
 
 
@@ -30,6 +31,7 @@ class MIPSSettings(Document):
     supported_currencies = ["MUR"]
 
     def get_parsed_site_address(self, full_address: bool = True) -> str:
+        # TODO: For development use. Not intended for production
         site_address = get_request_site_address(full_address=full_address)
         parsed = urlparse(site_address)
         address = f"{parsed.scheme}://{parsed.hostname}"  # Discard port portion
@@ -52,10 +54,10 @@ class MIPSSettings(Document):
         )
 
         # required to fetch the bank account details from the payment gateway account
-        frappe.db.commit()
         create_mode_of_payment(
             "MIPS-" + self.payment_gateway_name, payment_type="Phone"
         )
+        frappe.db.commit()
 
         if self.is_callback_registered == 0:
             # Register IMN Callback URL
@@ -69,10 +71,24 @@ class MIPSSettings(Document):
             }
             header = {"Content-Type": "application/json", "Accept": "application/json"}
 
-            response = requests.post(url=url, json=payload, headers=header)
+            response = requests.post(
+                url=url,
+                json=payload,
+                auth=HTTPBasicAuth(self.username, self.password),
+                headers=header,
+            )
 
             if response and response.status_code == 200:
-                self.is_callback_registered = 1
+                if response.text == "success":
+                    self.is_callback_registered = 1
+
+                else:
+                    frappe.throw(
+                        "IMN Callback was not registered", title="Setup Failure"
+                    )
+
+            else:
+                frappe.throw(response.text, title=f"Error: {response.status_code}")
 
     def validate_transaction_currency(self, currency: str) -> None:
         if currency not in self.supported_currencies:
@@ -96,7 +112,6 @@ class MIPSSettings(Document):
 
                 response = frappe._dict(get_payment_request_response_payload(amount))
             else:
-                # TODO: This is where I insert the MIPS Integration
                 response = frappe._dict(message="Payment Request")
 
     def split_request_amount_according_to_transaction_limit(
@@ -107,9 +122,7 @@ class MIPSSettings(Document):
         if request_amount > self.transaction_limit:
             # make multiple requests
             request_amounts = []
-            requests_to_be_made = ceil(
-                request_amount / self.transaction_limit
-            )  # 480/150 = ceil(3.2) = 4
+            requests_to_be_made = ceil(request_amount / self.transaction_limit)
             for i in range(requests_to_be_made):
                 amount = self.transaction_limit
                 if i == requests_to_be_made - 1:
@@ -126,5 +139,47 @@ class MIPSSettings(Document):
 
 @frappe.whitelist(allow_guest=True)
 def imn_callback(response: str) -> None:
+    """Decrypt IMN Callback Data"""
     data = json.loads(response)
-    print(f"Callback response {data}")
+
+    payment_gateway_acct: Document = frappe.db.get_singles_value(
+        "WebShop Settings", "payment_gateway_account"
+    )
+    gateway = frappe.db.get_value(
+        "Payment Gateway Account",
+        {"name": payment_gateway_acct},
+        ["payment_gateway"],
+    )
+    controller = frappe.db.get_value("Payment Gateway", gateway, ["gateway_controller"])
+    settings = frappe.get_doc("MIPS Settings", {"name": controller})
+
+    payload = {
+        "authentify": {
+            "id_merchant": settings.merchant_id,
+            "id_entity": settings.entity_id,
+            "id_operator": settings.operator_id,
+            "operator_password": settings.operator_password,
+        },
+        "salt": settings.hash_salt,
+        "cipher_key": settings.cipher_key,
+        "received_crypted_data": response,
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "user-agent": "ERPNext",
+    }
+
+    imn_callback_response = requests.post(
+        url="",
+        json=payload,
+        auth=HTTPBasicAuth(settings.username, settings.password),
+        headers=headers,
+    )
+
+    if imn_callback_response and imn_callback_response.status_code == 200:
+        # TODO: Handle success response
+        pass
+
+    else:
+        # TODO: Handle failure response
+        pass

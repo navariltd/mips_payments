@@ -27,9 +27,11 @@ def get_context(context: frappe._dict) -> None:
         user = frappe.session.user
         user_details = frappe.get_doc("User", {"name": user})
 
-        # TODO: Handle getting MIPS url properly
-        mips_url = "https://stoplight.io/mocks/mips/merchant-api/36020489/create_payment_request"
+        # TODO: Handle fetching of MIPS url properly
+        mips_url = "https://api.mips.mu/api/create_payment_request"
         expiry_date = add_to_date(datetime.now(), days=1)
+        max_date = expiry_date
+        start_time = datetime.now().strftime("%Y-%m-%d")
 
         payload = {
             "authentify": {
@@ -50,43 +52,26 @@ def get_context(context: frappe._dict) -> None:
                     "client_email": user_details.email,
                     "phone_number": user_details.mobile_no or "",
                 },
-                "client_other_data": [
-                    {
-                        "other_data_short_id": "color_of_eyes",
-                        "other_data_value": "brown",
-                    }
-                ],
-                "order_other_data": [
-                    {"other_data_short_id": "color_of_car", "other_data_value": "green"}
-                ],
                 "max_amount_total": float(form_dict.amount),
                 "max_amount_per_claim": 0,
                 "max_frequency": 0,
-                "max_date": "2019-08-24",  # TODO: Figure out the max date
+                "max_date": max_date.strftime("%Y-%m-%d"),
                 "deposit_amount": form_dict.amount,
                 "balance_pattern": [
                     {
                         "balance_number": 1,
                         "balance_mode": "auto",
-                        "condition": '"Upon request" or "2022-05-25"',
+                        "condition": f'"Upon request" or {max_date.strftime("%Y-%m-%d")}',
                     }
                 ],
-                "membership": {
-                    "interval": 1,
-                    "frequency": "month",
-                    "start_date": "2022-03-18",  # TODO: Figure out the start date and end date
-                    "end_date": "2022-03-18",
-                    "day_to_process": 5,
-                    "membership_amount": 0,
-                },
                 "client_account_number": "string",
             },
             "initial_payment": {
-                "id_order": "INV5026",
+                "id_order": form_dict.order_id,
                 "currency": "MUR",
                 "amount": float(form_dict.amount),
             },
-            "iframe_behavior": {"custom_redirection_url": "string"},
+            # "iframe_behavior": {"custom_redirection_url": "string"},
         }
 
         credentials = HTTPBasicAuth(
@@ -101,18 +86,22 @@ def get_context(context: frappe._dict) -> None:
                 "user-agent": "ERPNext",
             },
         )
-        context.form_data = form_dict
+        context.fetch_code = mips_payment_request.status_code
 
         if mips_payment_request.status_code == 200:
-            context.fetch_code = mips_payment_request.status_code
-            context.text = mips_payment_request.text
-            context.response = mips_payment_request
-            context.data = mips_payment_request.json()
-            context.redirect_to = str(
-                mips_payment_request.json()["payment_link"]["url"]
-            )
-            context.qr_code = mips_payment_request.json()["payment_link"]["qr_code"]
+            result_body = mips_payment_request.json()
+            context.status = result_body["operation_status"]
+
+            if result_body["operation_status"] == "success":
+                context.request = payload
+                context.data = result_body
+                context.redirect_to = str(result_body["payment_link"]["url"])
+                context.qr_code = result_body["payment_link"]["qr_code"]
+
+            elif result_body["operation_status"] == "error":
+                # TODO: Handle error cases
+                context.text = mips_payment_request.text
+                context.error = result_body["operation_status_details"]
 
         else:
-            # TODO: Handle error cases
-            context.text = mips_payment_request.text
+            frappe.msgprint("Fatal Error encountered")
