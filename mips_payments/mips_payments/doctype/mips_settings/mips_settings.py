@@ -13,6 +13,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import call_hook_method, ceil, get_request_site_address
+from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
 from payments.payment_gateways.doctype.mpesa_settings.mpesa_settings import (
     create_mode_of_payment,
@@ -170,15 +171,26 @@ def imn_callback(response: str) -> None:
     }
 
     imn_callback_response = requests.post(
-        url="",
+        url="https://api.mips.mu/api/decrypt_imn_data",
         json=payload,
         auth=HTTPBasicAuth(settings.username, settings.password),
         headers=headers,
+        timeout=300,
     )
 
     if imn_callback_response and imn_callback_response.status_code == 200:
-        # TODO: Handle success response
-        pass
+        response_detail = frappe._dict(imn_callback_response.json())
+
+        if response_detail.status == "success":
+            # TODO: Create payment entries?
+            # TODO: Figure out how to capture the Sales Order details
+            payment_entry = get_payment_entry(dt="Sales Order", dn="")
+            payment_entry.save()
+
+        else:
+            # TODO: Handle failure response
+            # TODO: Notify user?
+            pass
 
     else:
         # TODO: Handle failure response
