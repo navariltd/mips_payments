@@ -1,74 +1,66 @@
-{% extends "templates/web.html" %}
+{% extends "templates/web.html" %} {% block title %} MIPS Payment {% endblock %}
+{%- block header -%}{% endblock %} {%- block page_content -%}
+<p class="lead text-center">
+  <span class="mips-payment">
+    {% if not data %} {{ _("Loading MIPS Payment") }} {% else %} {{ _("Preparing
+    Payment Page") }} {% endif %}
+  </span>
+</p>
 
-{% block title %} MIPS Payment {% endblock %}
+<div
+  class="lds-dual-ring d-flex justify-content-center align-items-center"
+></div>
 
-{%- block header -%}{% endblock %}
+{% if data %}
+<div class="d-flex flex-column justify-content-center align-items-center">
+  <div>Redirecting...</div>
+  <br />
+  Or Scan this QR Code if page does not redirect
+  <br />
+  <img src='{{ qr_code }}' /img>
+</div>
+{% elif error %}
+<div class="d-flex flex-column justify-content-center align-items-center">
+  {{ error }}
+</div>
+{% endif %}
 
-{%- block page_content -%}
-    <p class="lead text-center">
-      <span class="mips-payment">
-        {% if not data %}
-            {{ _("Loading MIPS Payment") }}
-        {% else %}
-            {{ _("Preparing Payment Page") }}
-        {% endif %}
-      </span>
-    </p>
+<style type="text/css">
+  .lds-dual-ring,
+  .lds-dual-ring:after {
+    box-sizing: border-box;
+  }
 
-    <div class="lds-dual-ring d-flex justify-content-center align-items-center"></div>
+  .lds-dual-ring {
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+  }
 
-    {% if data %}
-        <div class="d-flex flex-column justify-content-center align-items-center">
-            <div>
-                Redirecting...
-            </div>
-            <br>
-            Or Scan this QR Code if page does not redirect
-            <br>
-            <img src='{{ qr_code }}' /img>
-        </div>
-    {% elif error %}
-        <div class="d-flex flex-column justify-content-center align-items-center">
-            {{ error }}
-        </div>
-    {% endif %}
+  .lds-dual-ring:after {
+    content: " ";
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 8px;
+    border-radius: 50%;
+    border: 6.4px solid currentColor;
+    border-color: currentColor transparent currentColor transparent;
+    animation: lds-dual-ring 1.2s linear infinite;
+  }
 
-    <style type="text/css">
-      .lds-dual-ring,
-      .lds-dual-ring:after {
-        box-sizing: border-box;
-      }
+  @keyframes lds-dual-ring {
+    0% {
+      transform: rotate(0deg);
+    }
 
-      .lds-dual-ring {
-        display: inline-block;
-        width: 100%;
-        height: 100%;
-      }
-
-      .lds-dual-ring:after {
-        content: " ";
-        display: block;
-        width: 64px;
-        height: 64px;
-        margin: 8px;
-        border-radius: 50%;
-        border: 6.4px solid currentColor;
-        border-color: currentColor transparent currentColor transparent;
-        animation: lds-dual-ring 1.2s linear infinite;
-      }
-
-      @keyframes lds-dual-ring {
-        0% {
-          transform: rotate(0deg);
-        }
-
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    </style>
-{% endblock %}
-
-{% block script %}
-    <script>{% include "templates/includes/mips_checkout.js" %}</script>
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+</style>
+{% endblock %} {% block script %}
+<script>
+  {% include "templates/includes/mips_checkout.js" %}
+</script>
 {% endblock %}
