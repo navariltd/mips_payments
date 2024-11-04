@@ -1,8 +1,6 @@
 # Copyright (c) 2024, Frappe Technologies and contributors
 # For license information, please see license.txt
 
-
-import json
 from enum import Enum
 from urllib.parse import urlencode, urlparse
 
@@ -51,7 +49,7 @@ class MIPSSettings(Document):
         call_hook_method(
             "payment_gateway_enabled",
             gateway="MIPS-" + self.payment_gateway_name,
-            payment_channel="Phone",
+            payment_channel="Email",
         )
 
         # required to fetch the bank account details from the payment gateway account
@@ -139,9 +137,9 @@ class MIPSSettings(Document):
 
 
 @frappe.whitelist(allow_guest=True)
-def imn_callback(response: str) -> None:
+def imn_callback(**kwargs) -> None:
     """Decrypt IMN Callback Data"""
-    data = json.loads(response)
+    data = frappe._dict(kwargs)
 
     payment_gateway_acct: Document = frappe.db.get_singles_value(
         "WebShop Settings", "payment_gateway_account"
@@ -163,7 +161,7 @@ def imn_callback(response: str) -> None:
         },
         "salt": settings.hash_salt,
         "cipher_key": settings.cipher_key,
-        "received_crypted_data": response,
+        "received_crypted_data": data.get("crypted_callback"),
     }
     headers = {
         "Content-Type": "application/json",
@@ -177,15 +175,11 @@ def imn_callback(response: str) -> None:
         headers=headers,
         timeout=300,
     )
-
     if imn_callback_response and imn_callback_response.status_code == 200:
         response_detail = frappe._dict(imn_callback_response.json())
 
         if response_detail.status == "success":
-            # TODO: Create payment entries?
-            # TODO: Figure out how to capture the Sales Order details
-            payment_entry = get_payment_entry(dt="Sales Order", dn="")
-            payment_entry.save()
+            process_payment(response_detail.data)
 
         else:
             # TODO: Handle failure response
@@ -195,3 +189,40 @@ def imn_callback(response: str) -> None:
     else:
         # TODO: Handle failure response
         pass
+
+
+def process_payment(response_detail):
+    """Process and create payment entries with system permissions."""
+    sales_order = fetch_sales_order(response_detail.get("id_order"))
+    if sales_order:
+        print(sales_order)
+        create_payment_entry(sales_order, response_detail)
+
+
+def fetch_sales_order(order_id: str) -> Document:
+    """Fetch Sales Order based on Payment Request's reference_name field."""
+    payment_request = frappe.get_doc("Payment Request", {"name": order_id})
+    sales_order = frappe.get_doc("Sales Order", payment_request.reference_name)
+    return sales_order
+
+
+def create_payment_entry(sales_order: Document, response_detail: frappe._dict) -> None:
+    """Create a Payment Entry for the given Sales Order and response details using Administrator user."""
+    original_user = frappe.session.user
+    frappe.set_user("Administrator")
+
+    try:
+        payment_entry = get_payment_entry(dt="Sales Order", dn=sales_order.name)
+        payment_entry.reference_date = frappe.utils.nowdate()
+        payment_entry.payment_type = "Receive"
+        payment_entry.party_type = "Customer"
+        payment_entry.party = sales_order.customer
+        payment_entry.currency = response_detail.get("currency")
+        payment_entry.reference_no = response_detail.get("id_transaction")
+        payment_entry.insert()
+        payment_entry.submit()
+
+        frappe.db.commit()
+
+    finally:
+        frappe.set_user(original_user)
